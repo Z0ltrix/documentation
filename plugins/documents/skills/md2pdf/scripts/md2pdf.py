@@ -2,7 +2,6 @@
 """Render Markdown as a styled PDF with Pandoc and Typst."""
 
 import argparse
-import json
 import os
 import re
 import shlex
@@ -19,6 +18,9 @@ import install_deps
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 ASSETS_DIR = SKILL_DIR / "assets"
+STRUCTURE_FILTER = SCRIPT_DIR / "structure.lua"
+GLOSSARY_FILTER = SCRIPT_DIR / "glossary.lua"
+DOCUMENT_MODULE = ASSETS_DIR / "document.typ"
 READER = "markdown+implicit_figures+definition_lists+fenced_code_attributes+pipe_tables+grid_tables"
 
 THEMES = {
@@ -48,21 +50,6 @@ THEMES = {
     },
 }
 
-LABELS = {
-    "en": {
-        "toc": "Contents",
-        "tot": "List of Tables",
-        "tof": "List of Figures",
-        "glossary": "Glossary",
-    },
-    "de": {
-        "toc": "Inhaltsverzeichnis",
-        "tot": "Tabellenverzeichnis",
-        "tof": "Abbildungsverzeichnis",
-        "glossary": "Glossar",
-    },
-}
-
 
 class RenderError(RuntimeError):
     pass
@@ -83,7 +70,10 @@ def parse_args(argv=None):
     parser.add_argument("--no-toc", action="store_true")
     parser.add_argument("--no-tot", action="store_true")
     parser.add_argument("--no-tof", action="store_true")
-    parser.add_argument("--no-glossary", action="store_true")
+    parser.add_argument(
+        "--glossary", type=Path, metavar="FILE",
+        help="YAML glossary file; omitted means no glossary",
+    )
     parser.add_argument("--keep-typ", action="store_true")
     parser.add_argument("--check-deps", action="store_true")
     parser.add_argument("--install-deps", action="store_true")
@@ -155,128 +145,6 @@ def print_dependency_status(status):
             print("{}: missing".format(name))
 
 
-def _text_parts(value, parts):
-    if isinstance(value, list):
-        for item in value:
-            _text_parts(item, parts)
-        return
-    if not isinstance(value, dict):
-        return
-    tag = value.get("t")
-    content = value.get("c")
-    if tag == "Str":
-        parts.append(content)
-    elif tag in ("Space", "SoftBreak", "LineBreak"):
-        parts.append(" ")
-    elif tag in ("Code", "Math", "RawInline", "CodeBlock", "RawBlock"):
-        if isinstance(content, list) and content:
-            parts.append(str(content[-1]))
-    elif tag in ("Link", "Image") and isinstance(content, list) and len(content) > 1:
-        _text_parts(content[1], parts)
-    elif tag == "Header" and isinstance(content, list) and len(content) > 2:
-        _text_parts(content[2], parts)
-    else:
-        _text_parts(content, parts)
-
-
-def node_text(value):
-    parts = []
-    _text_parts(value, parts)
-    text = "".join(parts)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def walk_nodes(value):
-    if isinstance(value, dict):
-        if "t" in value:
-            yield value
-        for child in value.values():
-            for item in walk_nodes(child):
-                yield item
-    elif isinstance(value, list):
-        for child in value:
-            for item in walk_nodes(child):
-                yield item
-
-
-def meta_text(meta, key):
-    value = meta.get(key)
-    if not value:
-        return ""
-    return node_text(value)
-
-
-def analyze_document(ast):
-    counts = {"headings": 0, "tables": 0, "figures": 0}
-
-    def visit(value, inside_figure=False):
-        if isinstance(value, list):
-            for child in value:
-                visit(child, inside_figure)
-            return
-        if not isinstance(value, dict):
-            return
-        tag = value.get("t")
-        if tag == "Header":
-            counts["headings"] += 1
-        elif tag == "Table":
-            counts["tables"] += 1
-        elif tag == "Figure":
-            counts["figures"] += 1
-            inside_figure = True
-        elif tag == "Image" and not inside_figure:
-            counts["figures"] += 1
-        for child in value.values():
-            visit(child, inside_figure)
-
-    visit(ast.get("blocks", []))
-    return counts
-
-
-def extract_glossary(ast):
-    entries = {}
-
-    def add(term, definition):
-        term = re.sub(r"\s+", " ", term).strip(" :;-–—")
-        definition = re.sub(r"\s+", " ", definition).strip(" :;-–—")
-        if not term or not definition or len(term) > 80 or len(definition) < 3:
-            return
-        key = term.casefold()
-        if key not in entries or len(definition) > len(entries[key][1]):
-            entries[key] = (term, definition[:500])
-
-    for node in walk_nodes(ast.get("blocks", [])):
-        tag = node.get("t")
-        content = node.get("c")
-        if tag == "DefinitionList" and isinstance(content, list):
-            for item in content:
-                if isinstance(item, list) and len(item) == 2:
-                    add(node_text(item[0]), node_text(item[1]))
-        if tag in ("Para", "Plain") and isinstance(content, list) and content:
-            first = content[0]
-            if isinstance(first, dict) and first.get("t") == "Strong":
-                term = node_text(first)
-                definition = node_text(content[1:]).lstrip(" :;-–—")
-                add(term, definition)
-
-    document_text = node_text(ast.get("blocks", []))
-    long_word = r"[A-ZÄÖÜ][A-Za-zÀ-ÖØ-öø-ÿ0-9-]+"
-    connector = r"(?:and|or|of|for|the|in|to|und|oder|der|die|das|des|von|für|im|zur)"
-    long_form = r"{}(?:\s+(?:{}|{})){{1,7}}".format(long_word, long_word, connector)
-    acronym = r"[A-ZÄÖÜ][A-ZÄÖÜ0-9.-]{1,9}"
-    for match in re.finditer(r"\b({})\s*\(({})\)".format(long_form, acronym), document_text):
-        add(match.group(2), match.group(1))
-
-    return sorted(entries.values(), key=lambda item: item[0].casefold())
-
-
-def first_heading(ast):
-    for node in walk_nodes(ast.get("blocks", [])):
-        if node.get("t") == "Header":
-            return node_text(node)
-    return ""
-
-
 def typst_string(value):
     return '"{}"'.format(
         value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
@@ -309,62 +177,47 @@ def render_style(args):
     return template
 
 
-def template_metadata(args):
-    theme = THEMES[args.style]
-    return {
-        "papersize": args.paper,
-        "fontsize": theme["fontsize"],
-        "mainfont": args.font or theme["body_fonts"][0],
-        "codefont": [args.mono_font or theme["mono_fonts"][0]],
-        "linestretch": theme["linestretch"],
-        "section-numbering": "1.1",
-        "margin": theme["margin"],
-    }
-
-
-def language_key(value):
-    return "de" if (value or "").lower().startswith("de") else "en"
-
-
-def render_frontmatter(counts, labels, args):
-    sections = []
-    if counts["headings"] and not args.no_toc:
-        sections.append("#outline(title: [{}], depth: 3)".format(labels["toc"]))
-    if counts["tables"] and not args.no_tot:
-        sections.append(
-            "#outline(title: [{}], target: figure.where(kind: table))".format(labels["tot"])
-        )
-    if counts["figures"] and not args.no_tof:
-        sections.append(
-            "#outline(title: [{}], target: figure.where(kind: image))".format(labels["tof"])
-        )
-    if not sections:
-        return ""
-    return "#pagebreak(weak: true)\n" + "\n#pagebreak(weak: true)\n".join(sections) + "\n#pagebreak(weak: true)\n"
-
-
-def render_glossary(entries, title):
-    if not entries:
-        return ""
-    data = ",\n  ".join(
-        "({}, {})".format(typst_string(term), typst_string(definition))
-        for term, definition in entries
-    )
-    return """#pagebreak(weak: true)
-#heading(level: 1, outlined: false)[%s]
-#let md-glossary = (
-  %s,
-)
-#for entry in md-glossary {
-  grid(
-    columns: (1fr, 2.6fr),
-    gutter: 12pt,
-    strong(entry.at(0)),
-    entry.at(1),
-  )
-  v(0.55em)
-}
-""" % (title, data)
+def build_pandoc_command(args, source, work, style_path, generated_typst, staged_glossary=None):
+    command = [
+        "pandoc",
+        source.name,
+        "--from",
+        READER,
+        "--to",
+        "typst",
+        "--standalone",
+        "--lua-filter",
+        SCRIPT_DIR / "captions.lua",
+        "--lua-filter",
+        STRUCTURE_FILTER,
+        "--template",
+        DOCUMENT_MODULE,
+        "--include-in-header",
+        style_path,
+        "--metadata",
+        "md2pdf-toc={}".format(str(not args.no_toc).lower()),
+        "--metadata",
+        "md2pdf-tot={}".format(str(not args.no_tot).lower()),
+        "--metadata",
+        "md2pdf-tof={}".format(str(not args.no_tof).lower()),
+        "--output",
+        generated_typst,
+    ]
+    if staged_glossary is not None:
+        glossary_path = Path(os.path.relpath(staged_glossary, source.parent)).as_posix()
+        command.extend([
+            "--lua-filter",
+            GLOSSARY_FILTER,
+            "--metadata",
+            "md2pdf-glossary={}".format(glossary_path),
+        ])
+    if args.title:
+        command.extend(["--metadata", "title={}".format(args.title)])
+    if args.author:
+        command.extend(["--metadata", "author={}".format(args.author)])
+    if args.lang:
+        command.extend(["--metadata", "lang={}".format(args.lang)])
+    return command
 
 
 def atomic_copy(source, destination):
@@ -382,70 +235,28 @@ def render(args, pandoc, typst):
     source = args.input.expanduser().resolve()
     if not source.is_file():
         raise RenderError("Markdown input not found: {}".format(source))
+    glossary = None
+    if args.glossary:
+        glossary = args.glossary.expanduser().resolve()
+        if not glossary.is_file():
+            raise RenderError("Glossary file not found: {}".format(glossary))
     output = (args.output or source.with_suffix(".pdf")).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-
-    ast_text = run_command(
-        [pandoc, source.name, "--from", READER, "--to", "json"],
-        source.parent,
-        args.verbose,
-    )
-    ast = json.loads(ast_text)
-    counts = analyze_document(ast)
-    glossary = [] if args.no_glossary else extract_glossary(ast)
-    meta = ast.get("meta", {})
-    language = args.lang or meta_text(meta, "lang") or "en"
-    labels = LABELS[language_key(language)]
-    title = args.title or meta_text(meta, "title") or first_heading(ast) or source.stem
-
     style_text = render_style(args)
-    frontmatter = render_frontmatter(counts, labels, args)
-    glossary_text = render_glossary(glossary, labels["glossary"])
-
     generated_typst = source.parent / ".md2pdf-{}.typ".format(uuid.uuid4().hex)
     try:
         with tempfile.TemporaryDirectory(prefix=".md2pdf-", dir=str(source.parent)) as work_name:
             work = Path(work_name)
             style_path = work / "style.typ"
-            front_path = work / "frontmatter.typ"
-            glossary_path = work / "glossary.typ"
-            metadata_path = work / "template-metadata.json"
             rendered_pdf = work / "rendered.pdf"
+            staged_glossary = work / "glossary.yml" if glossary else None
             style_path.write_text(style_text, encoding="utf-8")
-            front_path.write_text(frontmatter, encoding="utf-8")
-            glossary_path.write_text(glossary_text, encoding="utf-8")
-            metadata_path.write_text(
-                json.dumps(template_metadata(args), ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
+            if staged_glossary:
+                shutil.copy2(str(glossary), str(staged_glossary))
+            command = build_pandoc_command(
+                args, source, work, style_path, generated_typst, staged_glossary
             )
-
-            command = [
-                pandoc,
-                source.name,
-                "--from",
-                READER,
-                "--to",
-                "typst",
-                "--standalone",
-                "--lua-filter",
-                SCRIPT_DIR / "captions.lua",
-                "--metadata-file",
-                metadata_path,
-                "--include-in-header",
-                style_path,
-                "--output",
-                generated_typst,
-            ]
-            if frontmatter:
-                command.extend(["--include-before-body", front_path])
-            if glossary_text:
-                command.extend(["--include-after-body", glossary_path])
-            if args.title:
-                command.extend(["--metadata", "title={}".format(args.title)])
-            if args.author:
-                command.extend(["--metadata", "author={}".format(args.author)])
-            if args.lang:
-                command.extend(["--metadata", "lang={}".format(args.lang)])
+            command[0] = pandoc
             run_command(command, source.parent, args.verbose)
             run_command(
                 [typst, "compile", "--root", source.parent, generated_typst, rendered_pdf],
@@ -459,19 +270,13 @@ def render(args, pandoc, typst):
         if generated_typst.exists():
             generated_typst.unlink()
 
-    sections = {
-        "toc": bool(counts["headings"] and not args.no_toc),
-        "tot": bool(counts["tables"] and not args.no_tot),
-        "tof": bool(counts["figures"] and not args.no_tof),
-        "glossary": bool(glossary),
-    }
     print("Created: {}".format(output))
     print(
-        "Sections: toc={toc}, tables={tables}, figures={figures}, glossary={glossary}".format(
-            toc="yes" if sections["toc"] else "no",
-            tables=counts["tables"] if sections["tot"] else "off",
-            figures=counts["figures"] if sections["tof"] else "off",
-            glossary=len(glossary) if sections["glossary"] else "off",
+        "Sections: toc={}, tables={}, figures={}, glossary={}".format(
+            "off" if args.no_toc else "auto",
+            "off" if args.no_tot else "auto",
+            "off" if args.no_tof else "auto",
+            glossary.name if glossary else "off",
         )
     )
     return output
@@ -511,7 +316,7 @@ def main(argv=None):
 
     try:
         render(args, status["pandoc"], status["typst"])
-    except (RenderError, OSError, ValueError, json.JSONDecodeError) as error:
+    except (RenderError, OSError, ValueError) as error:
         print("error: {}".format(error), file=sys.stderr)
         return 1
     return 0

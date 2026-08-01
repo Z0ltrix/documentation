@@ -14,58 +14,34 @@ SPEC.loader.exec_module(MD2PDF)
 
 
 class Md2PdfTests(unittest.TestCase):
-    def test_glossary_uses_document_evidence(self):
-        ast = {
-            "blocks": [
-                {
-                    "t": "DefinitionList",
-                    "c": [
-                        [
-                            [{"t": "Str", "c": "Typst"}],
-                            [[{"t": "Plain", "c": [{"t": "Str", "c": "A"}, {"t": "Space"}, {"t": "Str", "c": "typesetting"}, {"t": "Space"}, {"t": "Str", "c": "system."}]}]],
-                        ]
-                    ],
-                },
-                {
-                    "t": "Para",
-                    "c": [
-                        {"t": "Str", "c": "Application"},
-                        {"t": "Space"},
-                        {"t": "Str", "c": "Programming"},
-                        {"t": "Space"},
-                        {"t": "Str", "c": "Interface"},
-                        {"t": "Space"},
-                        {"t": "Str", "c": "(API)"},
-                    ],
-                },
-                {
-                    "t": "Para",
-                    "c": [
-                        {"t": "Strong", "c": [{"t": "Str", "c": "Renderer"}]},
-                        {"t": "Str", "c": ":"},
-                        {"t": "Space"},
-                        {"t": "Str", "c": "Builds"},
-                        {"t": "Space"},
-                        {"t": "Str", "c": "the"},
-                        {"t": "Space"},
-                        {"t": "Str", "c": "PDF."},
-                    ],
-                },
-            ]
-        }
-        entries = dict(MD2PDF.extract_glossary(ast))
-        self.assertEqual(entries["API"], "Application Programming Interface")
-        self.assertEqual(entries["Typst"], "A typesetting system.")
-        self.assertEqual(entries["Renderer"], "Builds the PDF.")
+    def test_glossary_is_an_optional_path(self):
+        disabled = MD2PDF.parse_args(["document.md"])
+        enabled = MD2PDF.parse_args(["document.md", "--glossary", "terms.yml"])
+        self.assertIsNone(disabled.glossary)
+        self.assertEqual(enabled.glossary, Path("terms.yml"))
+        self.assertFalse(hasattr(enabled, "no_glossary"))
 
-    def test_frontmatter_respects_individual_switches(self):
-        args = SimpleNamespace(no_toc=False, no_tot=True, no_tof=False)
-        text = MD2PDF.render_frontmatter(
-            {"headings": 2, "tables": 1, "figures": 1}, MD2PDF.LABELS["en"], args
+    def test_no_glossary_is_rejected(self):
+        with self.assertRaises(SystemExit):
+            MD2PDF.parse_args(["document.md", "--no-glossary"])
+
+    def test_pandoc_command_enables_glossary_only_with_a_staged_file(self):
+        args = SimpleNamespace(
+            no_toc=False, no_tot=True, no_tof=False,
+            title=None, author=None, lang=None,
         )
-        self.assertIn("Contents", text)
-        self.assertNotIn("List of Tables", text)
-        self.assertIn("List of Figures", text)
+        without = MD2PDF.build_pandoc_command(
+            args, Path("document.md"), Path(".md2pdf-work"), Path("style.typ"),
+            Path("document.typ"), None,
+        )
+        with_file = MD2PDF.build_pandoc_command(
+            args, Path("document.md"), Path(".md2pdf-work"), Path("style.typ"),
+            Path("document.typ"), Path(".md2pdf-work/glossary.yml"),
+        )
+        self.assertNotIn(str(MD2PDF.GLOSSARY_FILTER), [str(p) for p in without])
+        self.assertIn(str(MD2PDF.GLOSSARY_FILTER), [str(p) for p in with_file])
+        self.assertNotIn("md2pdf-glossary", " ".join(map(str, without)))
+        self.assertIn("md2pdf-glossary=.md2pdf-work/glossary.yml", " ".join(map(str, with_file)))
 
     def test_style_template_is_fully_resolved(self):
         args = SimpleNamespace(
