@@ -59,7 +59,7 @@ class Md2PdfTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             return self.pdf_text(output, pdftotext)
 
-    def render_markdown_text(self, markdown, extra_args):
+    def render_markdown(self, markdown, extra_args):
         pdftotext = self.require_render_tools()
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
@@ -70,7 +70,10 @@ class Md2PdfTests(unittest.TestCase):
                 code = MD2PDF.main([str(source), "--output", str(output)] + extra_args)
             self.assertEqual(code, 0)
             self.assertTrue(output.is_file())
-            return self.pdf_text(output, pdftotext)
+            return self.pdf_text(output, pdftotext), output.read_bytes()
+
+    def render_markdown_text(self, markdown, extra_args):
+        return self.render_markdown(markdown, extra_args)[0]
 
     def assert_glossary_error(self, glossary_path, expected):
         self.require_render_tools()
@@ -169,6 +172,53 @@ class Md2PdfTests(unittest.TestCase):
         self.assertIn("A defined interface used by software systems", glossary)
         self.assertNotIn("A programmable typesetting system", glossary)
         self.assertNotIn("This description must never appear", glossary)
+
+    def test_glossary_matches_formatted_longest_candidate(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "overlap.yml"
+            path.write_text(
+                "- key: application\n"
+                "  short: Application\n"
+                "  description: Short candidate only.\n"
+                "- key: api\n"
+                "  short: Application Programming Interface\n"
+                "  description: Long formatted candidate.\n",
+                encoding="utf-8",
+            )
+            text = self.render_markdown_text(
+                "# Test\n\nApplication *Programming* Interface.\n",
+                ["--glossary", str(path)],
+            )
+        body, glossary = text.split("Glossary", 1)
+        self.assertIn("Application Programming Interface", body)
+        self.assertIn("Long formatted candidate", glossary)
+        self.assertNotIn("Short candidate only", glossary)
+
+    def test_glossary_normalizes_source_line_softbreak(self):
+        text = self.render_markdown_text(
+            "# Test\n\nApplication Programming\nInterface is used.\n",
+            ["--glossary", str(FIXTURES / "glossary.yml")],
+        )
+        self.assertIn("A defined interface used by software systems", text)
+
+    def test_glossary_uses_unicode_word_boundaries_and_links_matches(self):
+        markdown = "# Test\n\nAPI‑ API， API😀 APIÄ API界\n"
+        _, plain_pdf = self.render_markdown(markdown, [])
+        text, glossary_pdf = self.render_markdown(
+            markdown, ["--glossary", str(FIXTURES / "glossary.yml")]
+        )
+        self.assertIn("A defined interface used by software systems", text)
+        plain_links = plain_pdf.count(b"/Subtype /Link")
+        glossary_links = glossary_pdf.count(b"/Subtype /Link")
+        self.assertEqual(glossary_links - plain_links, 3)
+
+    def test_glossary_registers_footnote_prose(self):
+        text = self.render_markdown_text(
+            "# Test\n\nText with a note.[^1]\n\n[^1]: Typst appears here.\n",
+            ["--glossary", str(FIXTURES / "glossary.yml")],
+        )
+        self.assertIn("Typst appears here", text)
+        self.assertIn("A programmable typesetting system", text)
 
     def test_missing_glossary_file_is_rejected(self):
         self.assert_glossary_error(

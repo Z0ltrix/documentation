@@ -81,13 +81,58 @@ local function glossary_terms(path)
   return candidates
 end
 
-local unicode_separators = {
-  [" "] = true, [" "] = true, [" "] = true, [" "] = true,
-  [" "] = true, [" "] = true, [" "] = true, [" "] = true,
-  [" "] = true, [" "] = true, [" "] = true, [" "] = true,
-  ["–"] = true, ["—"] = true, ["‘"] = true, ["’"] = true,
-  ["“"] = true, ["”"] = true, ["…"] = true,
+local unicode_digit_starts = {
+  0x0660, 0x06F0, 0x07C0, 0x0966, 0x09E6, 0x0A66, 0x0AE6,
+  0x0B66, 0x0BE6, 0x0C66, 0x0CE6, 0x0D66, 0x0DE6, 0x0E50,
+  0x0ED0, 0x0F20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946,
+  0x19D0, 0x1A80, 0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50,
+  0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0,
+  0xFF10, 0x104A0, 0x10D30, 0x11066, 0x110F0, 0x11136,
+  0x111D0, 0x112F0, 0x11450, 0x114D0, 0x11650, 0x116C0,
+  0x11730, 0x118E0, 0x11950, 0x11C50, 0x11D50, 0x11DA0,
+  0x16A60, 0x16AC0, 0x16B50, 0x1E140, 0x1E2F0, 0x1E4F0,
+  0x1E950,
 }
+
+local function is_unicode_digit(character)
+  local codepoint = utf8.codepoint(character)
+  if codepoint >= 0x1D7CE and codepoint <= 0x1D7FF then
+    return true
+  end
+  for _, start_at in ipairs(unicode_digit_starts) do
+    if codepoint >= start_at and codepoint <= start_at + 9 then
+      return true
+    end
+  end
+  return false
+end
+
+local unicode_boundary_ranges = {
+  {0x00A0, 0x00BF},
+  {0x1680, 0x1680},
+  {0x180E, 0x180E},
+  {0x2000, 0x206F},
+  {0x20A0, 0x2BFF},
+  {0x2E00, 0x2E7F},
+  {0x3000, 0x303F},
+  {0xFE10, 0xFE1F},
+  {0xFE30, 0xFE6F},
+  {0xFF01, 0xFF0F},
+  {0xFF1A, 0xFF20},
+  {0xFF3B, 0xFF40},
+  {0xFF5B, 0xFF65},
+  {0x1F000, 0x1FAFF},
+}
+
+local function is_unicode_boundary(character)
+  local codepoint = utf8.codepoint(character)
+  for _, range in ipairs(unicode_boundary_ranges) do
+    if codepoint >= range[1] and codepoint <= range[2] then
+      return true
+    end
+  end
+  return false
+end
 
 local function is_word_character(character)
   if character == nil or character == "" then
@@ -99,7 +144,11 @@ local function is_word_character(character)
   if #character == 1 then
     return false
   end
-  return not unicode_separators[character]
+  if pandoc.text.lower(character) ~= pandoc.text.upper(character)
+    or is_unicode_digit(character) then
+    return true
+  end
+  return not is_unicode_boundary(character)
 end
 
 local function has_word_boundaries(text, start_at, finish_at)
@@ -134,23 +183,106 @@ local function find_matches(text)
   return matches
 end
 
-local function is_run_inline(inline)
-  return inline.t == "Str" or inline.t == "Space"
-    or inline.t == "SoftBreak" or inline.t == "LineBreak"
+local function is_text_inline(inline)
+  return inline.t == "Str" or inline.t == "Space" or inline.t == "SoftBreak"
+end
+
+local excluded_inlines = {
+  Image = true,
+  Code = true,
+  Math = true,
+  RawInline = true,
+  Note = true,
+}
+
+local function is_matchable_inline(inline)
+  if is_text_inline(inline) then
+    return true
+  end
+  if excluded_inlines[inline.t] or inline.content == nil or #inline.content == 0 then
+    return false
+  end
+  for _, child in ipairs(inline.content) do
+    if not is_matchable_inline(child) then
+      return false
+    end
+  end
+  return true
+end
+
+local function inline_text(inline, parts)
+  if inline.t == "Str" then
+    table.insert(parts, inline.text)
+  elseif inline.t == "Space" or inline.t == "SoftBreak" then
+    table.insert(parts, " ")
+  else
+    for _, child in ipairs(inline.content) do
+      inline_text(child, parts)
+    end
+  end
 end
 
 local function run_text(run)
   local parts = {}
   for _, inline in ipairs(run) do
-    if inline.t == "Str" then
-      table.insert(parts, inline.text)
-    elseif inline.t == "Space" then
-      table.insert(parts, " ")
-    else
-      table.insert(parts, "\n")
-    end
+    inline_text(inline, parts)
   end
   return table.concat(parts)
+end
+
+local function inline_length(inline)
+  if inline.t == "Str" then
+    return pandoc.text.len(inline.text)
+  end
+  if inline.t == "Space" or inline.t == "SoftBreak" then
+    return 1
+  end
+  local length = 0
+  for _, child in ipairs(inline.content) do
+    length = length + inline_length(child)
+  end
+  return length
+end
+
+local slice_inlines
+
+local function slice_inline(inline, first, last, position)
+  local length = inline_length(inline)
+  local inline_last = position + length - 1
+  if last < position or first > inline_last then
+    return nil, inline_last + 1
+  end
+  if inline.t == "Str" then
+    local local_first = math.max(first, position) - position + 1
+    local local_last = math.min(last, inline_last) - position + 1
+    return pandoc.Str(pandoc.text.sub(inline.text, local_first, local_last)), inline_last + 1
+  end
+  if inline.t == "Space" or inline.t == "SoftBreak" then
+    return inline:clone(), inline_last + 1
+  end
+  local clone = inline:clone()
+  clone.content = slice_inlines(inline.content, first, last, position)
+  return clone, inline_last + 1
+end
+
+slice_inlines = function(inlines, first, last, position)
+  local output = pandoc.Inlines({})
+  local cursor = position
+  for _, inline in ipairs(inlines) do
+    local sliced
+    sliced, cursor = slice_inline(inline, first, last, cursor)
+    if sliced ~= nil then
+      output:insert(sliced)
+    end
+  end
+  return output
+end
+
+local function slice_run(run, first, last)
+  if first > last then
+    return pandoc.Inlines({})
+  end
+  return slice_inlines(run, first, last, 1)
 end
 
 local function wrap_run(run)
@@ -159,69 +291,31 @@ local function wrap_run(run)
     return run
   end
 
-  local opens = {}
-  local closes = {}
-  for _, match in ipairs(matches) do
-    opens[match.start_at] = pandoc.RawInline(
-      "typst", '#md-glossary-ref("' .. typst_string(match.key) .. '")['
-    )
-    closes[match.finish_at + 1] = pandoc.RawInline("typst", "]")
-  end
-
   local output = pandoc.Inlines({})
-  local position = 1
-  local function emit_boundary(at)
-    if closes[at] then
-      output:insert(closes[at])
-      closes[at] = nil
-    end
-    if opens[at] then
-      output:insert(opens[at])
-      opens[at] = nil
-    end
+  local cursor = 1
+  for _, match in ipairs(matches) do
+    output:extend(slice_run(run, cursor, match.start_at - 1))
+    output:insert(pandoc.RawInline(
+      "typst", '#md-glossary-ref("' .. typst_string(match.key) .. '")['
+    ))
+    output:extend(slice_run(run, match.start_at, match.finish_at))
+    output:insert(pandoc.RawInline("typst", "]"))
+    cursor = match.finish_at + 1
   end
-
-  for _, inline in ipairs(run) do
-    if inline.t == "Str" then
-      local inline_length = pandoc.text.len(inline.text)
-      local inline_end = position + inline_length
-      local local_position = 1
-      while position < inline_end do
-        emit_boundary(position)
-        local next_boundary = inline_end
-        for boundary in pairs(opens) do
-          if boundary > position and boundary < next_boundary then
-            next_boundary = boundary
-          end
-        end
-        for boundary in pairs(closes) do
-          if boundary > position and boundary < next_boundary then
-            next_boundary = boundary
-          end
-        end
-        local part_length = next_boundary - position
-        output:insert(pandoc.Str(
-          pandoc.text.sub(inline.text, local_position, local_position + part_length - 1)
-        ))
-        position = next_boundary
-        local_position = local_position + part_length
-      end
-      emit_boundary(position)
-    else
-      emit_boundary(position)
-      output:insert(inline)
-      position = position + 1
-      emit_boundary(position)
-    end
-  end
+  output:extend(slice_run(run, cursor, pandoc.text.len(run_text(run))))
   return output
 end
 
 local process_inlines
+local process_blocks
 
 local function process_container(inline)
+  if inline.t == "Note" then
+    inline.content = process_blocks(inline.content)
+    return inline
+  end
   if inline.t == "Image" or inline.t == "Code" or inline.t == "Math"
-    or inline.t == "RawInline" or inline.t == "Note" then
+    or inline.t == "RawInline" then
     return inline
   end
   if inline.content ~= nil then
@@ -238,7 +332,7 @@ process_inlines = function(inlines)
     run = pandoc.Inlines({})
   end
   for _, inline in ipairs(inlines) do
-    if is_run_inline(inline) then
+    if is_matchable_inline(inline) then
       run:insert(inline)
     else
       flush_run()
@@ -254,7 +348,7 @@ local function process_prose_block(block)
   return block
 end
 
-local function process_blocks(blocks)
+process_blocks = function(blocks)
   local output = pandoc.Blocks({})
   for _, block in ipairs(blocks) do
     if block.t == "Para" or block.t == "Plain" then
