@@ -1,0 +1,44 @@
+{
+  "name": "documentation-marketplace",
+  "interface": {
+    "displayName": "Documentation Marketplace"
+  },
+  "plugins": [
+    {
+      "name": "documents",
+      "source": {
+        "source": "local",
+        "path": "./plugins/documents"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "diagrams",
+      "source": {
+        "source": "local",
+        "path": "./plugins/diagrams"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "slides",
+      "source": {
+        "source": "local",
+        "path": "./plugins/slides"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

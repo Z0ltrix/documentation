@@ -1,0 +1,37 @@
+{
+  "name": "documentation-marketplace",
+  "owner": {
+    "name": "Christian Pfarr",
+    "email": "z0ltrix@pm.me",
+    "url": "https://github.com/Z0ltrix"
+  },
+  "metadata": {
+    "description": "Document, diagram, and slide production plugins."
+  },
+  "plugins": [
+    {
+      "name": "documents",
+      "source": "./plugins/documents",
+      "description": "Create polished PDFs and document artifacts.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["markdown", "pdf", "pandoc", "typst"]
+    },
+    {
+      "name": "diagrams",
+      "source": "./plugins/diagrams",
+      "description": "Diagram workflows; draw.io support follows.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["diagrams", "drawio"]
+    },
+    {
+      "name": "slides",
+      "source": "./plugins/slides",
+      "description": "Presentation workflows; Slidev support follows.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["slides", "slidev"]
+    }
+  ]
+}

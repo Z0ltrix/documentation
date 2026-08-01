@@ -1,0 +1,24 @@
+{
+  "name": "documents",
+  "version": "0.1.0",
+  "description": "Create polished document artifacts from source formats such as Markdown.",
+  "author": {
+    "name": "Christian Pfarr",
+    "email": "z0ltrix@pm.me",
+    "url": "https://github.com/Z0ltrix"
+  },
+  "homepage": "https://github.com/Z0ltrix/documentation",
+  "repository": "https://github.com/Z0ltrix/documentation",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["documents", "markdown", "pdf", "pandoc", "typst"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Documents",
+    "shortDescription": "Create polished PDFs and document artifacts.",
+    "longDescription": "Turn Markdown into designed PDFs with automatic contents, table, figure, and glossary sections.",
+    "developerName": "Z0ltrix",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": "Turn this Markdown file into a polished PDF."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "diagrams",
+  "version": "0.1.0",
+  "description": "Reserved plugin surface for diagram creation and editing workflows.",
+  "author": {
+    "name": "Christian Pfarr",
+    "email": "z0ltrix@pm.me",
+    "url": "https://github.com/Z0ltrix"
+  },
+  "homepage": "https://github.com/Z0ltrix/documentation",
+  "repository": "https://github.com/Z0ltrix/documentation",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["diagrams", "drawio"],
+  "interface": {
+    "displayName": "Diagrams",
+    "shortDescription": "Diagram workflows; draw.io support follows.",
+    "longDescription": "Reserved for diagram workflows, with draw.io support planned as the first skill.",
+    "developerName": "Z0ltrix",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Help me plan a clear technical diagram."
+  }
+}

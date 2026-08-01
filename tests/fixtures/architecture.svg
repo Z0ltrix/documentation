@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" role="img" aria-labelledby="title desc">
+  <title id="title">Markdown to PDF pipeline</title>
+  <desc id="desc">Markdown flows through Pandoc and Typst into a PDF.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0" stop-color="#eff6ff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+  <rect width="960" height="300" rx="24" fill="url(#bg)"/>
+  <g font-family="Arial, sans-serif" text-anchor="middle">
+    <g transform="translate(65 72)">
+      <rect width="210" height="150" rx="16" fill="#fff" stroke="#93c5fd" stroke-width="3"/>
+      <text x="105" y="66" font-size="28" font-weight="700" fill="#172033">Markdown</text>
+      <text x="105" y="101" font-size="18" fill="#64748b">source.md</text>
+    </g>
+    <g transform="translate(375 72)">
+      <rect width="210" height="150" rx="16" fill="#2563eb"/>
+      <text x="105" y="66" font-size="28" font-weight="700" fill="#fff">Pandoc</text>
+      <text x="105" y="101" font-size="18" fill="#dbeafe">AST + captions</text>
+    </g>
+    <g transform="translate(685 72)">
+      <rect width="210" height="150" rx="16" fill="#172033"/>
+      <text x="105" y="66" font-size="28" font-weight="700" fill="#fff">Typst</text>
+      <text x="105" y="101" font-size="18" fill="#cbd5e1">styled PDF</text>
+    </g>
+  </g>
+  <path d="M285 147 H355" stroke="#2563eb" stroke-width="6" marker-end="url(#arrow)"/>
+  <path d="M595 147 H665" stroke="#2563eb" stroke-width="6" marker-end="url(#arrow)"/>
+</svg>
