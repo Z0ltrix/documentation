@@ -107,6 +107,33 @@ local function is_unicode_digit(character)
   return false
 end
 
+local unicode_word_ranges = {
+  {0x2102, 0x2102},
+  {0x2107, 0x2107},
+  {0x210A, 0x2113},
+  {0x2115, 0x2115},
+  {0x2119, 0x211D},
+  {0x2124, 0x2124},
+  {0x2126, 0x2126},
+  {0x2128, 0x2128},
+  {0x212A, 0x212D},
+  {0x212F, 0x2139},
+  {0x213C, 0x213F},
+  {0x2145, 0x2149},
+  {0x214E, 0x214E},
+  {0x2150, 0x2189},
+}
+
+local function is_unicode_word(character)
+  local codepoint = utf8.codepoint(character)
+  for _, range in ipairs(unicode_word_ranges) do
+    if codepoint >= range[1] and codepoint <= range[2] then
+      return true
+    end
+  end
+  return false
+end
+
 -- Pandoc exposes no Unicode category API. Keep punctuation/symbol ranges narrow;
 -- uncased letters, numbers, combining marks, and CJK iteration marks stay words.
 local unicode_boundary_ranges = {
@@ -128,6 +155,7 @@ local unicode_boundary_ranges = {
   {0x2041, 0x2053},
   {0x2055, 0x206F},
   {0x20A0, 0x20CF},
+  {0x2100, 0x218F},
   {0x2190, 0x245F},
   {0x2500, 0x2BFF},
   {0x2E00, 0x2E7F},
@@ -167,6 +195,9 @@ local function is_word_character(character)
   end
   if pandoc.text.lower(character) ~= pandoc.text.upper(character)
     or is_unicode_digit(character) then
+    return true
+  end
+  if is_unicode_word(character) then
     return true
   end
   return not is_unicode_boundary(character)

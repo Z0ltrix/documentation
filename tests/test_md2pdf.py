@@ -232,6 +232,16 @@ class Md2PdfTests(unittest.TestCase):
         glossary_links = glossary_pdf.count(b"/Subtype /Link")
         self.assertEqual(glossary_links - plain_links, 0)
 
+    def test_glossary_distinguishes_letterlike_symbols_from_letters_and_numbers(self):
+        markdown = "# Test\n\nAPI™ API℃ APIℂ APIⅣ\n"
+        _, plain_pdf = self.render_markdown(markdown, [])
+        _, glossary_pdf = self.render_markdown(
+            markdown, ["--glossary", str(FIXTURES / "glossary.yml")]
+        )
+        plain_links = plain_pdf.count(b"/Subtype /Link")
+        glossary_links = glossary_pdf.count(b"/Subtype /Link")
+        self.assertEqual(glossary_links - plain_links, 2)
+
     def test_glossary_registers_footnote_prose(self):
         text = self.render_markdown_text(
             "# Test\n\nText with a note.[^1]\n\n[^1]: Typst appears here.\n",
