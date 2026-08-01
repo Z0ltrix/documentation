@@ -23,6 +23,11 @@ GLOSSARY_FILTER = SCRIPT_DIR / "glossary.lua"
 DOCUMENT_MODULE = ASSETS_DIR / "document.typ"
 READER = "markdown+implicit_figures+definition_lists+fenced_code_attributes+pipe_tables+grid_tables"
 
+PAPERS = {
+    "a4": {"typst": "a4", "width": "210mm", "height": "297mm"},
+    "letter": {"typst": "us-letter", "width": "8.5in", "height": "11in"},
+}
+
 THEMES = {
     "modern": {
         "accent": "2563eb",
@@ -60,7 +65,7 @@ def parse_args(argv=None):
     parser.add_argument("input", nargs="?", type=Path, help="Markdown input file")
     parser.add_argument("-o", "--output", type=Path, help="PDF output path")
     parser.add_argument("--style", choices=tuple(THEMES), default="modern")
-    parser.add_argument("--paper", choices=("a4", "letter"), default="a4")
+    parser.add_argument("--paper", choices=tuple(PAPERS), default="a4")
     parser.add_argument("--font", help="Body font family")
     parser.add_argument("--mono-font", help="Monospace font family")
     parser.add_argument("--accent", help="Six-digit theme color, with optional #")
@@ -160,6 +165,7 @@ def typst_font_tuple(fonts):
 
 def render_style(args):
     theme = THEMES[args.style]
+    paper = PAPERS[args.paper]
     accent = (args.accent or theme["accent"]).lstrip("#")
     if not re.fullmatch(r"[0-9A-Fa-f]{6}", accent):
         raise RenderError("--accent must be a six-digit hexadecimal color")
@@ -167,7 +173,9 @@ def render_style(args):
     mono_fonts = [args.mono_font] if args.mono_font else theme["mono_fonts"]
     template = (ASSETS_DIR / "styles" / "{}.typ".format(args.style)).read_text(encoding="utf-8")
     replacements = {
-        "@@PAPER@@": args.paper,
+        "@@PAPER@@": paper["typst"],
+        "@@PAGE_WIDTH@@": paper["width"],
+        "@@PAGE_HEIGHT@@": paper["height"],
         "@@ACCENT@@": accent.lower(),
         "@@BODY_FONT@@": typst_font_tuple(body_fonts),
         "@@MONO_FONT@@": typst_font_tuple(mono_fonts),

@@ -316,27 +316,62 @@ class Md2PdfTests(unittest.TestCase):
     def test_short_code_blocks_stay_on_one_page_in_every_style(self):
         markers = ("def publish(markdown, output):", "return compile_pdf(typst, output)")
         for style in MD2PDF.THEMES:
-            with self.subTest(style=style):
-                pages = self.render_demo_text(["--style", style]).split("\f")
-                marker_pages = [
-                    next(index for index, page in enumerate(pages) if marker in page)
-                    for marker in markers
-                ]
-                self.assertEqual(marker_pages[0], marker_pages[1])
+            for paper in ("a4", "letter"):
+                with self.subTest(style=style, paper=paper):
+                    pages = self.render_demo_text(
+                        ["--style", style, "--paper", paper]
+                    ).split("\f")
+                    marker_pages = [
+                        next(index for index, page in enumerate(pages) if marker in page)
+                        for marker in markers
+                    ]
+                    self.assertEqual(marker_pages[0], marker_pages[1])
 
     def test_long_code_blocks_break_across_pages_without_losing_lines(self):
         lines = ["CODE-LINE-{:03d}".format(index) for index in range(1, 91)]
         markdown = "# Long code\n\n```text\n{}\n```\n".format("\n".join(lines))
         for style in MD2PDF.THEMES:
+            for paper in ("a4", "letter"):
+                with self.subTest(style=style, paper=paper):
+                    text = self.render_markdown_text(
+                        markdown, ["--style", style, "--paper", paper]
+                    )
+                    pages = text.split("\f")
+                    self.assertEqual([line for line in lines if line not in text], [])
+                    marker_pages = [
+                        next(index for index, page in enumerate(pages) if marker in page)
+                        for marker in (lines[0], lines[-1])
+                    ]
+                    self.assertNotEqual(marker_pages[0], marker_pages[1])
+
+    def test_wrapped_code_blocks_break_across_pages_without_losing_lines(self):
+        markers = ["WRAP-LINE-{:03d}".format(index) for index in range(1, 41)]
+        lines = [marker + " " + "x" * (99 - len(marker)) for marker in markers]
+        markdown = "# Wrapped code\n\n```text\n{}\n```\n".format("\n".join(lines))
+        for style in MD2PDF.THEMES:
+            for paper in ("a4", "letter"):
+                with self.subTest(style=style, paper=paper):
+                    text = self.render_markdown_text(
+                        markdown, ["--style", style, "--paper", paper]
+                    )
+                    pages = text.split("\f")
+                    self.assertEqual(
+                        [marker for marker in markers if marker not in text], []
+                    )
+                    marker_pages = [
+                        next(index for index, page in enumerate(pages) if marker in page)
+                        for marker in (markers[0], markers[-1])
+                    ]
+                    self.assertNotEqual(marker_pages[0], marker_pages[1])
+
+    def test_letter_paper_renders_in_every_style(self):
+        for style in MD2PDF.THEMES:
             with self.subTest(style=style):
-                text = self.render_markdown_text(markdown, ["--style", style])
-                pages = text.split("\f")
-                self.assertEqual([line for line in lines if line not in text], [])
-                marker_pages = [
-                    next(index for index, page in enumerate(pages) if marker in page)
-                    for marker in (lines[0], lines[-1])
-                ]
-                self.assertNotEqual(marker_pages[0], marker_pages[1])
+                text = self.render_markdown_text(
+                    "# Letter paper\n\nBody.\n",
+                    ["--style", style, "--paper", "letter"],
+                )
+                self.assertIn("Letter paper", text)
 
 
 if __name__ == "__main__":

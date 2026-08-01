@@ -3,6 +3,8 @@
 #let md-muted = rgb("#64748b")
 #let md-line = rgb("#cbd5e1")
 #let md-panel = rgb("#f4f7fb")
+#let md-content-width = @@PAGE_WIDTH@@ - 22mm - 22mm
+#let md-content-height = @@PAGE_HEIGHT@@ - 21mm - 20mm
 
 #set page(
   paper: "@@PAPER@@",
@@ -37,14 +39,19 @@
   inset: (left: 12pt, right: 10pt, top: 8pt, bottom: 8pt),
   radius: (right: 4pt),
 )[#it]
-#show raw.where(block: true): it => block(
+#let md-code-block(it, breakable: true) = block(
   width: 100%,
   fill: rgb("#0f172a"),
   stroke: 0.5pt + rgb("#26334a"),
   radius: 5pt,
   inset: 10pt,
-  breakable: it.text.split("\n").len() > 40,
+  breakable: breakable,
 )[#set text(font: @@MONO_FONT@@, size: 8.7pt, fill: rgb("#e2e8f0")); #it]
+#show raw.where(block: true): it => context {
+  let code = md-code-block(it)
+  let code-height = measure(code, width: md-content-width).height
+  md-code-block(it, breakable: code-height > md-content-height)
+}
 #show raw.where(block: false): it => box(
   fill: md-panel,
   radius: 3pt,
