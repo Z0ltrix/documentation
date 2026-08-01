@@ -72,6 +72,23 @@ class Md2PdfTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             return self.pdf_text(output, pdftotext)
 
+    def assert_glossary_error(self, glossary_path, expected):
+        self.require_render_tools()
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            source = root / "input.md"
+            output = root / "output.pdf"
+            source.write_text("# Test\n\nAPI is used.\n", encoding="utf-8")
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                code = MD2PDF.main([
+                    str(source), "--output", str(output),
+                    "--glossary", str(glossary_path),
+                ])
+            self.assertEqual(code, 1)
+            self.assertIn(expected, stderr.getvalue())
+            self.assertFalse(output.exists())
+
     def test_typst_builds_all_available_indexes(self):
         text = self.render_demo_text([])
         self.assertIn("Inhaltsverzeichnis", text)
@@ -117,6 +134,68 @@ class Md2PdfTests(unittest.TestCase):
         self.assertIn(str(MD2PDF.GLOSSARY_FILTER), [str(p) for p in with_file])
         self.assertNotIn("md2pdf-glossary", " ".join(map(str, without)))
         self.assertIn("md2pdf-glossary=.md2pdf-work/glossary.yml", " ".join(map(str, with_file)))
+
+    def test_glossary_flag_prints_only_used_entries(self):
+        text = self.render_markdown_text(
+            "# Test\n\nThe Application Programming Interface (API) is used here.\n",
+            ["--glossary", str(FIXTURES / "glossary.yml")],
+        )
+        self.assertIn("Glossary", text)
+        self.assertIn("A defined interface used by software systems", text)
+        self.assertNotIn("This description must never appear", text)
+
+    def test_glossary_is_absent_without_flag(self):
+        text = self.render_markdown_text("# Test\n\nAPI is used here.\n", [])
+        self.assertNotIn("Glossary", text)
+
+    def test_code_only_term_does_not_create_empty_glossary(self):
+        text = self.render_markdown_text(
+            "# Test\n\n`Typst`\n\n```text\nAPI\n```\n",
+            ["--glossary", str(FIXTURES / "glossary.yml")],
+        )
+        self.assertNotIn("Glossary", text)
+
+    def test_glossary_matches_table_prose_but_skips_non_prose_contexts(self):
+        text = self.render_markdown_text(
+            "# Unused Term\n\n"
+            "[reference](https://example.com/Typst)\n\n"
+            "| Term |\n| --- |\n| Programmierschnittstelle |\n\n"
+            ": Typst\n",
+            ["--glossary", str(FIXTURES / "glossary.yml")],
+        )
+        self.assertIn("Glossary", text)
+        body, glossary = text.split("Glossary", 1)
+        self.assertIn("Programmierschnittstelle", body)
+        self.assertIn("A defined interface used by software systems", glossary)
+        self.assertNotIn("A programmable typesetting system", glossary)
+        self.assertNotIn("This description must never appear", glossary)
+
+    def test_missing_glossary_file_is_rejected(self):
+        self.assert_glossary_error(
+            Path("missing-glossary.yml"), "Glossary file not found"
+        )
+
+    def test_duplicate_glossary_key_is_rejected(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "duplicate.yml"
+            path.write_text(
+                "- key: api\n  short: API\n  description: First.\n"
+                "- key: api\n  short: API2\n  description: Second.\n",
+                encoding="utf-8",
+            )
+            self.assert_glossary_error(path, "duplicate glossary key: api")
+
+    def test_missing_glossary_description_is_rejected(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "missing-description.yml"
+            path.write_text("- key: api\n  short: API\n", encoding="utf-8")
+            self.assert_glossary_error(path, "description")
+
+    def test_malformed_glossary_yaml_is_rejected(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name) / "malformed.yml"
+            path.write_text("- key: api\n  short: [API\n", encoding="utf-8")
+            self.assert_glossary_error(path, "YAML")
 
     def test_style_template_is_fully_resolved(self):
         args = SimpleNamespace(

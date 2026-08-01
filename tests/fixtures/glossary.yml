@@ -1,0 +1,12 @@
+- key: api
+  short: API
+  long: Application Programming Interface
+  aliases:
+    - Programmierschnittstelle
+  description: A defined interface used by software systems to communicate.
+- key: typst
+  short: Typst
+  description: A programmable typesetting system.
+- key: unused
+  short: Unused Term
+  description: This description must never appear when the term is unused.
