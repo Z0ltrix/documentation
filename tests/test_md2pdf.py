@@ -324,6 +324,20 @@ class Md2PdfTests(unittest.TestCase):
                 ]
                 self.assertEqual(marker_pages[0], marker_pages[1])
 
+    def test_long_code_blocks_break_across_pages_without_losing_lines(self):
+        lines = ["CODE-LINE-{:03d}".format(index) for index in range(1, 91)]
+        markdown = "# Long code\n\n```text\n{}\n```\n".format("\n".join(lines))
+        for style in MD2PDF.THEMES:
+            with self.subTest(style=style):
+                text = self.render_markdown_text(markdown, ["--style", style])
+                pages = text.split("\f")
+                self.assertEqual([line for line in lines if line not in text], [])
+                marker_pages = [
+                    next(index for index, page in enumerate(pages) if marker in page)
+                    for marker in (lines[0], lines[-1])
+                ]
+                self.assertNotEqual(marker_pages[0], marker_pages[1])
+
 
 if __name__ == "__main__":
     unittest.main()

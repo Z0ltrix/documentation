@@ -35,7 +35,7 @@
   stroke: 0.4pt + md-line,
   radius: 2pt,
   inset: 8pt,
-  breakable: false,
+  breakable: it.text.split("\n").len() > 40,
 )[#set text(font: @@MONO_FONT@@, size: 8.6pt); #it]
 #show raw.where(block: false): it => box(
   fill: md-panel,
