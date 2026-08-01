@@ -15,7 +15,7 @@
   "interface": {
     "displayName": "Documents",
     "shortDescription": "Create polished PDFs and document artifacts.",
-    "longDescription": "Turn Markdown into designed PDFs with automatic contents, table, figure, and glossary sections.",
+    "longDescription": "Turn Markdown into designed PDFs with automatic contents, table, and figure sections plus an optional file-driven glossary.",
     "developerName": "Z0ltrix",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],

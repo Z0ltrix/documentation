@@ -12,7 +12,7 @@ python scripts/md2pdf.py INPUT [--output OUTPUT]
 | `--no-toc` | Suppress the table of contents |
 | `--no-tot` | Suppress the list of tables |
 | `--no-tof` | Suppress the list of figures |
-| `--no-glossary` | Suppress glossary extraction and rendering |
+| `--glossary FILE` | Read glossary terms from a YAML file; omit this option for no glossary |
 | `--paper a4|letter` | Set the page size |
 | `--font NAME` | Override the body-font stack |
 | `--mono-font NAME` | Override the code-font stack |
@@ -22,6 +22,21 @@ python scripts/md2pdf.py INPUT [--output OUTPUT]
 | `--author TEXT` | Override the author metadata |
 | `--keep-typ` | Save generated Typst next to the PDF |
 | `--verbose` | Print subprocess commands and diagnostics |
+
+## Glossary YAML
+
+The file must be a YAML list. Every entry requires unique, non-empty `key`, `short`, and `description` strings. `long` is an optional string; `aliases` is an optional list of strings. Only entries referenced in document prose are rendered.
+
+```yaml
+- key: api
+  short: API
+  long: Application Programming Interface
+  aliases:
+    - Programmierschnittstelle
+  description: A defined interface used by software systems to communicate.
+```
+
+Render with `--glossary glossary.yml`. Omitting `--glossary` produces no glossary.
 
 ## Dependencies
 

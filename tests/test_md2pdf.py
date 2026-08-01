@@ -20,6 +20,28 @@ SPEC.loader.exec_module(MD2PDF)
 
 
 class Md2PdfTests(unittest.TestCase):
+    def test_documentation_matches_opt_in_glossary_contract(self):
+        paths = [
+            ROOT / "plugins" / "documents" / "skills" / "md2pdf" / "SKILL.md",
+            ROOT / "plugins" / "documents" / "skills" / "md2pdf" / "references" / "cli.md",
+            ROOT / "plugins" / "documents" / ".codex-plugin" / "plugin.json",
+            ROOT / "README.md",
+            FIXTURES / "demo.md",
+        ]
+        documents = [path.read_text(encoding="utf-8") for path in paths]
+        combined = "\n".join(documents)
+        description = next(
+            line[len("description: "):]
+            for line in documents[0].splitlines()
+            if line.startswith("description: ")
+        )
+
+        self.assertNotIn("--no-glossary", combined)
+        self.assertIn("--glossary", combined)
+        self.assertIn("glossary.yml", combined)
+        self.assertTrue(description.startswith("Use when"))
+        self.assertNotIn("glossary by default", combined.lower())
+
     def require_render_tools(self):
         pandoc = MD2PDF.find_tool("pandoc")
         typst = MD2PDF.find_tool("typst")

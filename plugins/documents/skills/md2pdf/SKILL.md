@@ -1,6 +1,6 @@
 ---
 name: md2pdf
-description: Convert Markdown files into polished PDF documents through Pandoc and Typst, with automatic tables of contents, tables, figures, and mechanically derived glossaries. Use when Codex or Claude Code needs to render, publish, restyle, or troubleshoot a Markdown-to-PDF workflow, including requests for typography, table styling, code-block styling, page layout, or index suppression.
+description: Use when rendering, publishing, restyling, or troubleshooting Markdown-to-PDF workflows with Pandoc and Typst, especially requests involving typography, tables, figures, code blocks, page layout, automatic indexes, or optional glossaries.
 ---
 
 # Markdown to PDF
@@ -12,7 +12,7 @@ Render with the bundled deterministic script. Do not recreate the Pandoc or Typs
 1. Resolve the requested Markdown input and output path.
 2. Run `python scripts/md2pdf.py --check-deps`.
 3. If Pandoc or Typst is missing, tell the user that the installer downloads pinned upstream binaries, then run `python scripts/md2pdf.py --install-deps` only after approval.
-4. Render with defaults unless the user requests specific switches:
+4. Render with defaults unless the user requests specific switches. Add `--glossary FILE` only when the user provides a glossary:
 
    ```text
    python scripts/md2pdf.py input.md --output output.pdf --style modern
@@ -24,10 +24,10 @@ Render with the bundled deterministic script. Do not recreate the Pandoc or Typs
 
 - Build the table of contents from headings.
 - Add captions to uncaptained Pandoc tables and standalone figures, then build the table and figure lists from those elements.
-- Build the glossary only from evidence in the document: Markdown definition lists, expanded acronyms such as `Application Programming Interface (API)`, and lead definitions such as `**Term**: meaning`. Never invent a definition.
+- Omit the glossary unless `--glossary FILE` is supplied. With a glossary file, include only entries whose `short`, optional `long`, or optional `aliases` text occurs in document prose.
 - Omit an empty automatic section even when its switch is enabled.
 
-Disable sections independently with `--no-toc`, `--no-tot`, `--no-tof`, and `--no-glossary`.
+Disable automatic indexes independently with `--no-toc`, `--no-tot`, and `--no-tof`.
 
 ## Styling
 

@@ -22,7 +22,7 @@ Die Verarbeitung besitzt drei klar getrennte Phasen:
 
 1. Pandoc liest Markdown in einen strukturierten Syntaxbaum ein.
 2. Der Filter ergänzt fehlende Beschriftungen aus dem Dokumentkontext.
-3. Typst setzt Inhalt, Verzeichnisse und Glossar als PDF.
+3. Typst setzt Inhalt, Verzeichnisse und bei Bedarf das Glossar als PDF.
 
 | Phase | Eingabe | Ausgabe | Verantwortung |
 | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ def publish(markdown, output):
     return compile_pdf(typst, output)
 ```
 
-Inline-Code wie `--no-glossary` bleibt auch in langen Absätzen gut lesbar. Links wie [Typst](https://typst.app/) übernehmen die Akzentfarbe des Presets.
+Inline-Code wie `--glossary glossary.yml` bleibt auch in langen Absätzen gut lesbar. Links wie [Typst](https://typst.app/) übernehmen die Akzentfarbe des Presets.
 
 ## Zweite Datensicht
 
@@ -59,16 +59,16 @@ Inline-Code wie `--no-glossary` bleibt auch in langen Absätzen gut lesbar. Link
 | `--no-toc` | aus | Inhaltsverzeichnis unterdrücken |
 | `--no-tot` | aus | Tabellenverzeichnis unterdrücken |
 | `--no-tof` | aus | Abbildungsverzeichnis unterdrücken |
-| `--no-glossary` | aus | Glossar unterdrücken |
+| `--glossary glossary.yml` | nicht gesetzt | Glossar aus YAML-Datei ergänzen |
 
 # Qualitätssicherung
 
-Die visuelle Prüfung betrachtet Titelseite, automatische Verzeichnisse, Tabellen, Abbildungen, Codeblöcke und Glossar. Zusätzlich wird der PDF-Text extrahiert, damit alle automatisch erzeugten Überschriften nachweisbar sind.
+Die visuelle Prüfung betrachtet Titelseite, automatische Verzeichnisse, Tabellen, Abbildungen, Codeblöcke und - falls angefordert - das Glossar. Zusätzlich wird der PDF-Text extrahiert, damit alle automatisch erzeugten Überschriften nachweisbar sind.
 
 ## Abnahmekriterien
 
 - Keine abgeschnittenen Zeilen oder überlappenden Elemente.
 - Lesbare Seitenzahlen und konsistente Abschnittshierarchie.
 - Einträge für beide Tabellen und die Abbildung.
-- Glossareinträge für API, Typst und Renderer.
+- Mit `--glossary glossary.yml` passende Glossareinträge für API und Typst.
 - Reproduzierbarer Build ohne Python-Abhängigkeiten außerhalb der Standardbibliothek.
