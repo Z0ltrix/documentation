@@ -212,6 +212,26 @@ class Md2PdfTests(unittest.TestCase):
         glossary_links = glossary_pdf.count(b"/Subtype /Link")
         self.assertEqual(glossary_links - plain_links, 3)
 
+    def test_glossary_treats_arabic_and_cjk_punctuation_as_boundaries(self):
+        markdown = "# Test\n\nAPI، API。\n"
+        _, plain_pdf = self.render_markdown(markdown, [])
+        _, glossary_pdf = self.render_markdown(
+            markdown, ["--glossary", str(FIXTURES / "glossary.yml")]
+        )
+        plain_links = plain_pdf.count(b"/Subtype /Link")
+        glossary_links = glossary_pdf.count(b"/Subtype /Link")
+        self.assertEqual(glossary_links - plain_links, 2)
+
+    def test_glossary_treats_cjk_iteration_mark_as_word_continuation(self):
+        markdown = "# Test\n\nAPI々\n"
+        _, plain_pdf = self.render_markdown(markdown, [])
+        _, glossary_pdf = self.render_markdown(
+            markdown, ["--glossary", str(FIXTURES / "glossary.yml")]
+        )
+        plain_links = plain_pdf.count(b"/Subtype /Link")
+        glossary_links = glossary_pdf.count(b"/Subtype /Link")
+        self.assertEqual(glossary_links - plain_links, 0)
+
     def test_glossary_registers_footnote_prose(self):
         text = self.render_markdown_text(
             "# Test\n\nText with a note.[^1]\n\n[^1]: Typst appears here.\n",
