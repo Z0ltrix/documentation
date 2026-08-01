@@ -39,6 +39,12 @@ class Md2PdfTests(unittest.TestCase):
         self.assertNotIn("--no-glossary", combined)
         self.assertIn("--glossary", combined)
         self.assertIn("glossary.yml", combined)
+        self.assertIn("a unique, non-empty string `key`", documents[1])
+        self.assertIn(
+            "`short` and `description` are required strings", documents[1]
+        )
+        self.assertIn("`long` is an optional string", documents[1])
+        self.assertIn("`aliases` is an optional array of strings", documents[1])
         self.assertTrue(description.startswith("Use when"))
         self.assertNotIn("glossary by default", combined.lower())
 

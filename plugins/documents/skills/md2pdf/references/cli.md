@@ -25,7 +25,7 @@ python scripts/md2pdf.py INPUT [--output OUTPUT]
 
 ## Glossary YAML
 
-The file must be a YAML list. Every entry requires unique, non-empty `key`, `short`, and `description` strings. `long` is an optional string; `aliases` is an optional list of strings. Only entries referenced in document prose are rendered.
+The file must be a YAML list. Each entry requires a unique, non-empty string `key`. `short` and `description` are required strings; `long` is an optional string; `aliases` is an optional array of strings. Only entries referenced in document prose are rendered.
 
 ```yaml
 - key: api
