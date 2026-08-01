@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+output/
+tmp/
+.md2pdf-*/
+/docs/superpowers/
