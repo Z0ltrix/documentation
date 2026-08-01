@@ -313,6 +313,17 @@ class Md2PdfTests(unittest.TestCase):
         self.assertNotIn("@@", style)
         self.assertIn('#let md-accent = rgb("#336699")', style)
 
+    def test_short_code_blocks_stay_on_one_page_in_every_style(self):
+        markers = ("def publish(markdown, output):", "return compile_pdf(typst, output)")
+        for style in MD2PDF.THEMES:
+            with self.subTest(style=style):
+                pages = self.render_demo_text(["--style", style]).split("\f")
+                marker_pages = [
+                    next(index for index, page in enumerate(pages) if marker in page)
+                    for marker in markers
+                ]
+                self.assertEqual(marker_pages[0], marker_pages[1])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -43,7 +43,7 @@
   stroke: 0.5pt + rgb("#26334a"),
   radius: 5pt,
   inset: 10pt,
-  breakable: true,
+  breakable: false,
 )[#set text(font: @@MONO_FONT@@, size: 8.7pt, fill: rgb("#e2e8f0")); #it]
 #show raw.where(block: false): it => box(
   fill: md-panel,
